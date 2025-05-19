@@ -6,6 +6,7 @@
 #include <lauxlib.h>
 
 #include <assert.h>
+#include <immintrin.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -66,7 +67,8 @@ current_timestamp() {
 static uint64_t
 next_timestamp(uint64_t lastTimestamp) {
     uint64_t timestamp = current_timestamp();
-    while (timestamp <= lastTimestamp) {
+    while (timestamp == lastTimestamp) {
+        _mm_pause();
         timestamp = current_timestamp();
     }
     return timestamp;
