@@ -499,7 +499,7 @@ function skynet.timeout(ti, func)
 	local co = co_create_for_timeout(func, ti)
 	assert(session_id_coroutine[session] == nil)
 	session_id_coroutine[session] = co
-	return co	-- for debug
+	return co, session	-- for debug
 end
 
 local function suspend_sleep(session, token)
