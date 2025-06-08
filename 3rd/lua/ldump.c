@@ -103,7 +103,13 @@ static void dumpString (DumpState *D, const TString *s) {
 
 static void dumpCode (DumpState *D, const Proto *f) {
   dumpInt(D, f->sizecode);
+#ifdef LUA_CODE_XOR
+  LUACODE_XOR(f, LUA_CODE_XOR)
+#endif
   dumpVector(D, f->code, f->sizecode);
+#ifdef LUA_CODE_XOR
+  LUACODE_XOR(f, LUA_CODE_XOR)
+#endif
 }
 
 
