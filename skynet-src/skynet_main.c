@@ -72,6 +72,8 @@ _init_env(lua_State *L) {
 		lua_pop(L,1);
 	}
 	lua_pop(L,1);
+
+	skynet_snowflake_init();
 }
 
 int sigign() {
