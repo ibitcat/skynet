@@ -226,6 +226,27 @@ lintcommand(lua_State *L) {
 }
 
 static int
+lrawintcommand(lua_State *L) {
+	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
+	const char * cmd = luaL_checkstring(L,1);
+	const char * parm = NULL;
+	char tmp[64];	// for integer parm
+	if (lua_gettop(L) == 2) {
+		if (lua_isnumber(L, 2)) {
+			int32_t n = (int32_t)luaL_checkinteger(L,2);
+			sprintf(tmp, "%d", n);
+			parm = tmp;
+		} else {
+			parm = luaL_checkstring(L,2);
+		}
+	}
+
+	int64_t result = (int64_t)skynet_command(context, cmd, parm);
+	lua_pushinteger(L, result);
+	return 1;
+}
+
+static int
 lgenid(lua_State *L) {
 	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
 	int session = skynet_send(context, 0, 0, PTYPE_TAG_ALLOCSESSION , 0 , NULL, 0);
@@ -505,6 +526,7 @@ luaopen_skynet_core(lua_State *L) {
 		{ "redirect", lredirect },
 		{ "command" , lcommand },
 		{ "intcommand", lintcommand },
+		{ "rawintcommand", lrawintcommand },
 		{ "addresscommand", laddresscommand },
 		{ "error", lerror },
 		{ "harbor", lharbor },

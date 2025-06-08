@@ -643,6 +643,12 @@ cmd_signal(struct skynet_context * context, const char * param) {
 	return NULL;
 }
 
+static const char *
+cmd_snowflake(struct skynet_context * context, const char * param) {
+	int machine = strtol(param, NULL, 10);
+	return (const char*)skynet_snowflake(machine);
+}
+
 static struct command_func cmd_funcs[] = {
 	{ "TIMEOUT", cmd_timeout },
 	{ "REG", cmd_reg },
@@ -660,6 +666,7 @@ static struct command_func cmd_funcs[] = {
 	{ "LOGON", cmd_logon },
 	{ "LOGOFF", cmd_logoff },
 	{ "SIGNAL", cmd_signal },
+	{ "SNOWFLAKE", cmd_snowflake },
 	{ NULL, NULL },
 };
 
