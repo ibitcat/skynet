@@ -69,6 +69,8 @@ local sleep_session = {}
 local watching_session = {}
 local error_queue = {}
 local fork_queue = { h = 1, t = 0 }
+local session_id_timeout_time = {}
+local session_id_timeout_trace = {}
 
 local auxsend, auxtimeout, auxwait
 do ---- avoid session rewind conflict
@@ -215,6 +217,10 @@ do ---- request/select
 				watching_session[session] = addr
 				session_id_coroutine[session] = self._thread
 				request_n = request_n + 1
+
+				local info = debug.getinfo(4,"Sl")
+				session_id_timeout_time[session] = c.now()
+				session_id_timeout_trace[session] = string.format("%s:%d", info.short_src, info.currentline)
 			end
 		end
 		self._request = request_n
@@ -235,6 +241,16 @@ do ---- request/select
 					self._resp[session] = tpack( p.unpack(msg, sz) )
 				else
 					self._resp[session] = false
+				end
+
+				local timeout_time = session_id_timeout_time[session]
+				local timeout_trace = session_id_timeout_trace[session]
+				session_id_timeout_time[session] = nil
+				session_id_timeout_trace[session] = nil
+				local delta = c.now() - timeout_time
+				if delta >= 3 then
+					-- 30ms
+					skynet.error(string.format("select overtime, cost=%dms, trace=%s", delta*10, timeout_trace))
 				end
 			end
 			skynet.wakeup(self)
@@ -904,6 +920,14 @@ local function raw_dispatch_message(prototype, msg, sz, session, source)
 		local co = session_id_coroutine[session]
 		if co == "BREAK" then
 			session_id_coroutine[session] = nil
+
+			local timeout_time = session_id_timeout_time[session]
+			local timeout_trace = session_id_timeout_trace[session]
+			session_id_timeout_time[session] = nil
+			session_id_timeout_trace[session] = nil
+			if timeout_time then
+				skynet.error(string.format("select tiemout, cost=%dms, trace=%s", (c.now() - timeout_time)*10, timeout_trace))
+			end
 		elseif co == nil then
 			unknown_response(session, source, msg, sz)
 		else
