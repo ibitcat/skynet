@@ -12,6 +12,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "lua.h"
 
@@ -366,6 +367,16 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   global_State *g;
   LG *l = cast(LG *, (*f)(ud, NULL, LUA_TTHREAD, sizeof(LG)));
   if (l == NULL) return NULL;
+  // xor
+  unsigned int xor_value = 0;
+  const char *code_xor = getenv("LUA_CODE_XOR");
+  if (code_xor != NULL) {
+      xor_value = (unsigned int)atoi(code_xor);
+  }
+  l->l.extra_[0] = xor_value > 0 ? (lu_byte)(xor_value & 0xFF) : 0;
+  l->l.extra_[1] = xor_value > 0 ? (lu_byte)((xor_value >> 8) & 0xFF) : 0;
+  l->l.extra_[2] = xor_value > 0 ? (lu_byte)((xor_value >> 16) & 0xFF) : 0;
+  l->l.extra_[3] = xor_value > 0 ? (lu_byte)((xor_value >> 24) & 0xFF) : 0;
   L = &l->l.l;
   g = &l->g;
   L->tt = LUA_VTHREAD;

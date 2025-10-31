@@ -32,11 +32,15 @@ LUAI_FUNC LClosure* luaU_undump (lua_State* L, ZIO* Z, const char* name);
 LUAI_FUNC int luaU_dump (lua_State* L, const Proto* f, lua_Writer w,
                          void* data, int strip);
 
-#define LUACODE_XOR(f, key)      \
-    do {                         \
-        for (int i = 0; i < (f)->sizecode; i++) {   \
-            (f)->code[i] ^= (key);                  \
-        }           \
-    } while (0);    \
+/* Macro to apply code XOR if needed */
+#define LUACODE_XOR(f, L)                                              \
+    do {                                                               \
+        unsigned int code_xor = *(unsigned int *)lua_getextraspace(L); \
+        if (code_xor > 0) {                                            \
+            for (int i = 0; i < (f)->sizecode; i++) {                  \
+                (f)->code[i] ^= code_xor;                              \
+            }                                                          \
+        }                                                              \
+    } while (0);
 
 #endif
