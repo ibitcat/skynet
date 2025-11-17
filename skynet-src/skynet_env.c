@@ -8,8 +8,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include <immintrin.h>
 #include <time.h>
+#if defined(__x86_64__)
+#include <immintrin.h> // For _mm_pause
+#define _spinlock_pause_() _mm_pause()
+#else
+#define _spinlock_pause_() ((void)0)
+#endif
+
 
 struct skynet_env {
 	struct spinlock lock;
@@ -69,18 +75,18 @@ static uint64_t
 next_timestamp(uint64_t lastTimestamp) {
     uint64_t timestamp = current_timestamp();
     while (timestamp == lastTimestamp) {
-        _mm_pause();
+        _spinlock_pause_();
         timestamp = current_timestamp();
     }
     return timestamp;
 }
 
 /*
-1bit |  38bit  | 15bit   | 10 bit
+1bit |  39bit  | 15bit   | 9 bit
 0    | 时间戳  | 节点号  | 序列表
-时间戳 从 2024-1-1 00:00:00 开始，支持8年
+时间戳 从 2024-1-1 00:00:00 开始，支持17年
 节点号 0-32767
-序列表 0-1023
+序列表 0-511
 */
 int64_t
 skynet_snowflake(int machine) {
@@ -93,7 +99,7 @@ skynet_snowflake(int machine) {
     } else {
 		if (curtime == E->snowflake_lasttime) {
 			// same millisecond
-			E->snowflake_sequence = (E->snowflake_sequence + 1) & 0x3ff;
+			E->snowflake_sequence = (E->snowflake_sequence + 1) & 0x1ff;
 			if (E->snowflake_sequence == 0){
 				E->snowflake_lasttime = next_timestamp(E->snowflake_lasttime);
 			}
@@ -103,11 +109,11 @@ skynet_snowflake(int machine) {
 		}
 
 		int64_t deltams = curtime - E->snowflake_starttime;
-		if (deltams >= 0x4000000000){
+		if (deltams >= 0x8000000000){
 			printf("Out of range time difference. Refusing to generate id.\n");
 			uuid = -1;
 		}else{
-			uuid = deltams << 25 | machine << 10 | E->snowflake_sequence;
+			uuid = deltams << 25 | machine << 9 | E->snowflake_sequence;
 		}
 	}
     SPIN_UNLOCK(E)
