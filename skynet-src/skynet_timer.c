@@ -47,6 +47,7 @@ struct timer {
 };
 
 static struct timer * TI = NULL;
+static int64_t time_offset = 0;
 
 static inline struct timer_node *
 link_clear(struct link_list *list) {
@@ -244,7 +245,7 @@ gettime() {
 
 void
 skynet_updatetime(void) {
-	uint64_t cp = gettime();
+	uint64_t cp = gettime() + time_offset;
 	if(cp < TI->current_point) {
 		skynet_error(NULL, "time diff error: change from %lld to %lld", cp, TI->current_point);
 		TI->current_point = cp;
@@ -289,4 +290,18 @@ skynet_thread_time(void) {
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ti);
 
 	return (uint64_t)ti.tv_sec * MICROSEC + (uint64_t)ti.tv_nsec / (NANOSEC / MICROSEC);
+}
+
+void
+skynet_timeoffset(int64_t offset) {
+	int64_t old_offset = time_offset;
+	int64_t new_offset = offset * 100; // to centisecond
+	if (new_offset < old_offset) {
+		skynet_error(NULL, "timer: time offset can't rollback from %lld to %lld", old_offset, new_offset);
+		return;
+	}
+	SPIN_LOCK(TI);
+	time_offset = new_offset;
+	SPIN_UNLOCK(TI);
+	skynet_error(NULL, "timer: time offset changed from %lld to %lld", old_offset, new_offset);
 }
