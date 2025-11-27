@@ -109,13 +109,37 @@ local function close_interface(interface, fd)
 	end
 end
 
-function httpc.request(method, hostname, url, recvheader, header, content)
-	local fd, interface, host = connect(hostname, httpc.timeout)
+local connections = {}
+
+function httpc.request(method, hostname, url, recvheader, header, content, keepalive)
+	local fd, interface, host
+	local conn = connections[hostname]
+	if conn then
+		fd, interface, host = conn.fd, conn.interface, conn.host
+	else
+		fd, interface, host = connect(hostname, httpc.timeout)
+		if keepalive then
+			-- Re-using connection for keep-alive
+			connections[hostname] = {
+				fd = fd,
+				interface = interface,
+				host = host,
+			}
+		end
+	end
+	if not keepalive then
+		header = header or {}
+		header["Connection"] = "close"
+	end
 	local ok , statuscode, body , header = pcall(internal.request, interface, method, host, url, recvheader, header, content)
 	if ok then
 		ok, body = pcall(internal.response, interface, statuscode, body, header)
 	end
-	close_interface(interface, fd)
+	keepalive = ok and keepalive or false
+	if not keepalive then
+		connections[hostname] = nil
+		close_interface(interface, fd)
+	end
 	if ok then
 		return statuscode, body
 	else
@@ -171,6 +195,14 @@ function httpc.post(host, url, form, recvheader)
 	end
 
 	return httpc.request("POST", host, url, recvheader, header, table.concat(body , "&"))
+end
+
+function httpc.close(hostname)
+	local conn = connections[hostname]
+	if conn then
+		connections[hostname] = nil
+		close_interface(conn.interface, conn.fd)
+	end
 end
 
 return httpc
