@@ -113,7 +113,7 @@ skynet_snowflake(int machine) {
 			printf("Out of range time difference. Refusing to generate id.\n");
 			uuid = -1;
 		}else{
-			uuid = deltams << 25 | machine << 9 | E->snowflake_sequence;
+			uuid = deltams << 24 | machine << 9 | E->snowflake_sequence;
 		}
 	}
     SPIN_UNLOCK(E)
