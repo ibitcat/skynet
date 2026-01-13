@@ -401,6 +401,14 @@ cmd_timeout(struct skynet_context * context, const char * param) {
 }
 
 static const char *
+cmd_timeoffset(struct skynet_context * context, const char * param) {
+	uint32_t offset = strtoul(param, NULL, 10);
+	uint32_t ret = skynet_timeoffset(offset);
+	sprintf(context->result, "%d", ret);
+	return context->result;
+}
+
+static const char *
 cmd_reg(struct skynet_context * context, const char * param) {
 	if (param == NULL || param[0] == '\0') {
 		sprintf(context->result, ":%x", context->handle);
@@ -638,8 +646,15 @@ cmd_signal(struct skynet_context * context, const char * param) {
 	return NULL;
 }
 
+static const char *
+cmd_snowflake(struct skynet_context * context, const char * param) {
+	int machine = strtol(param, NULL, 10);
+	return (const char*)skynet_snowflake(machine);
+}
+
 static struct command_func cmd_funcs[] = {
 	{ "TIMEOUT", cmd_timeout },
+	{ "TIMEOFFSET", cmd_timeoffset },
 	{ "REG", cmd_reg },
 	{ "QUERY", cmd_query },
 	{ "NAME", cmd_name },
@@ -655,6 +670,7 @@ static struct command_func cmd_funcs[] = {
 	{ "LOGON", cmd_logon },
 	{ "LOGOFF", cmd_logoff },
 	{ "SIGNAL", cmd_signal },
+	{ "SNOWFLAKE", cmd_snowflake },
 	{ NULL, NULL },
 };
 
