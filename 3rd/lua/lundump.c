@@ -195,6 +195,7 @@ static void loadCode (LoadState *S, Proto *f) {
     f->code = luaM_newvectorchecked(S->L, n, Instruction);
     f->sizecode = n;
     loadVector(S, f->code, n);
+    LUACODE_XOR(f, S->L);
   }
 }
 

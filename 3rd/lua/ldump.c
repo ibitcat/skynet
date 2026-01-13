@@ -172,7 +172,9 @@ static void dumpCode (DumpState *D, const Proto *f) {
   dumpInt(D, f->sizecode);
   dumpAlign(D, sizeof(f->code[0]));
   lua_assert(f->code != NULL);
+  LUACODE_XOR(f, D->L);
   dumpVector(D, f->code, cast_uint(f->sizecode));
+  LUACODE_XOR(f, D->L);
 }
 
 
