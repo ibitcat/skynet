@@ -72,7 +72,7 @@ _cb(struct skynet_context * context, void * ud, int type, int session, uint32_t 
 	const char * self = skynet_command(context, "REG", NULL);
 	switch (r) {
 	case LUA_ERRRUN:
-		skynet_error(context, "lua call [%x to %s : %d msgsz = %d] error : " KRED "%s" KNRM, source , self, session, sz, lua_tostring(L,-1));
+		skynet_error(context, "lua call [%x to %s : %d msgsz = %d, type = %d] error : " KRED "%s" KNRM, source , self, session, sz, type, lua_tostring(L,-1));
 		break;
 	case LUA_ERRMEM:
 		skynet_error(context, "lua memory error : [%x to %s : %d]", source , self, session);
@@ -223,6 +223,27 @@ lintcommand(lua_State *L) {
 		return 1;
 	}
 	return 0;
+}
+
+static int
+lrawintcommand(lua_State *L) {
+	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
+	const char * cmd = luaL_checkstring(L,1);
+	const char * parm = NULL;
+	char tmp[64];	// for integer parm
+	if (lua_gettop(L) == 2) {
+		if (lua_isnumber(L, 2)) {
+			int32_t n = (int32_t)luaL_checkinteger(L,2);
+			sprintf(tmp, "%d", n);
+			parm = tmp;
+		} else {
+			parm = luaL_checkstring(L,2);
+		}
+	}
+
+	int64_t result = (int64_t)skynet_command(context, cmd, parm);
+	lua_pushinteger(L, result);
+	return 1;
 }
 
 static int
@@ -505,6 +526,7 @@ luaopen_skynet_core(lua_State *L) {
 		{ "redirect", lredirect },
 		{ "command" , lcommand },
 		{ "intcommand", lintcommand },
+		{ "rawintcommand", lrawintcommand },
 		{ "addresscommand", laddresscommand },
 		{ "error", lerror },
 		{ "harbor", lharbor },
