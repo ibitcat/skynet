@@ -41,6 +41,8 @@ local function init(skynet, export)
 			stat.mqlen = skynet.stat "mqlen"
 			stat.cpu = skynet.stat "cpu"
 			stat.message = skynet.stat "message"
+			stat.mem = string.format("%.2f", collectgarbage("count"))
+			stat.cmem = string.format("%.2f", (require("skynet.memory").current() or 0) / 1024)
 			skynet.ret(skynet.pack(stat))
 		end
 
