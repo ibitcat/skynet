@@ -345,6 +345,30 @@ function socket.read(id, sz)
 	end
 end
 
+---读定长字节到 skynet_malloc 缓冲(lightuserdata + sz)，供 rawcall/rawsend DONTCOPY
+---@return lightuserdata|false msg
+---@return integer|string sz_or_err
+function socket.readmsg(id, sz)
+	assert(sz and sz > 0, "socket.readmsg need size > 0")
+	local s = socket_pool[id]
+	assert(s)
+	local msg, n = driver.popmsg(s.buffer, s.pool, sz)
+	if msg then
+		return msg, n
+	end
+	if s.closing or not s.connected then
+		return false, "closed"
+	end
+	assert(not s.read_required)
+	s.read_required = sz
+	suspend(s)
+	msg, n = driver.popmsg(s.buffer, s.pool, sz)
+	if msg then
+		return msg, n
+	end
+	return false, "closed"
+end
+
 function socket.readall(id)
 	local s = socket_pool[id]
 	assert(s)
