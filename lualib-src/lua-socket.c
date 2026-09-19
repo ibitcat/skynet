@@ -215,6 +215,86 @@ pop_lstring(lua_State *L, struct socket_buffer *sb, int sz, int skip) {
 	luaL_pushresult(&b);
 }
 
+/*
+	Pop sz bytes into a skynet_malloc buffer (lightuserdata + size).
+	Avoids Lua string materialization so callers can skynet.rawcall/rawsend with DONTCOPY.
+	When the request exactly matches one buffer node from offset 0, steals the node msg pointer (zero extra copy).
+ */
+static void
+pop_message(lua_State *L, struct socket_buffer *sb, int sz) {
+	struct buffer_node * current = sb->head;
+	assert(current);
+	assert(sz > 0);
+
+	/* Exact single-node steal: no memcpy */
+	if (sb->offset == 0 && sz == current->sz) {
+		void *msg = current->msg;
+		current->msg = NULL; /* return_free_node must not free */
+		return_free_node(L, 2, sb);
+		lua_pushlightuserdata(L, msg);
+		lua_pushinteger(L, sz);
+		return;
+	}
+
+	char *buf = (char *)skynet_malloc(sz);
+	if (buf == NULL) {
+		luaL_error(L, "socket.popmsg: out of memory");
+		return;
+	}
+	int need = sz;
+	char *dst = buf;
+	for (;;) {
+		int bytes = current->sz - sb->offset;
+		if (bytes >= need) {
+			memcpy(dst, current->msg + sb->offset, need);
+			sb->offset += need;
+			if (bytes == need) {
+				return_free_node(L, 2, sb);
+			}
+			break;
+		}
+		memcpy(dst, current->msg + sb->offset, bytes);
+		dst += bytes;
+		need -= bytes;
+		return_free_node(L, 2, sb);
+		if (need == 0) {
+			break;
+		}
+		current = sb->head;
+		assert(current);
+	}
+	lua_pushlightuserdata(L, buf);
+	lua_pushinteger(L, sz);
+}
+
+/*
+	userdata send_buffer
+	table pool
+	integer sz
+
+	return lightuserdata msg, integer sz  (or nil, remaining_size when not enough)
+ */
+static int
+lpopmsg(lua_State *L) {
+	struct socket_buffer * sb = lua_touserdata(L, 1);
+	if (sb == NULL) {
+		return luaL_error(L, "Need buffer object at param 1");
+	}
+	luaL_checktype(L,2,LUA_TTABLE);
+	int sz = luaL_checkinteger(L,3);
+	if (sz <= 0) {
+		return luaL_error(L, "popmsg size must be > 0");
+	}
+	if (sb->size < sz) {
+		lua_pushnil(L);
+		lua_pushinteger(L, sb->size);
+		return 2;
+	}
+	pop_message(L, sb, sz);
+	sb->size -= sz;
+	return 2;
+}
+
 static int
 lheader(lua_State *L) {
 	size_t len;
@@ -880,6 +960,7 @@ luaopen_skynet_socketdriver(lua_State *L) {
 		{ "buffer", lnewbuffer },
 		{ "push", lpushbuffer },
 		{ "pop", lpopbuffer },
+		{ "popmsg", lpopmsg },
 		{ "drop", ldrop },
 		{ "readall", lreadall },
 		{ "clear", lclearbuffer },
