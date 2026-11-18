@@ -72,6 +72,7 @@ local error_queue = {}
 local fork_queue = { h = 1, t = 0 }
 local session_id_timeout_time = {}
 local session_id_timeout_trace = {}
+local select_timeout_trace = false
 
 local auxsend, auxtimeout, auxwait
 do ---- avoid session rewind conflict
@@ -219,9 +220,10 @@ do ---- request/select
 				session_id_coroutine[session] = self._thread
 				request_n = request_n + 1
 
-				local info = debug.getinfo(4,"Sl")
-				session_id_timeout_time[session] = c.now()
-				session_id_timeout_trace[session] = string.format("%s:%d", info.short_src, info.currentline)
+				if select_timeout_trace then
+					session_id_timeout_time[session] = c.now()
+					session_id_timeout_trace[session] = traceback()
+				end
 			end
 		end
 		self._request = request_n
@@ -245,13 +247,15 @@ do ---- request/select
 				end
 
 				local timeout_time = session_id_timeout_time[session]
-				local timeout_trace = session_id_timeout_trace[session]
-				session_id_timeout_time[session] = nil
-				session_id_timeout_trace[session] = nil
-				local delta = c.now() - timeout_time
-				if delta >= 3 then
-					-- 30ms
-					skynet.error(string.format("select overtime, cost=%dms, trace=%s", delta*10, timeout_trace))
+				if timeout_time then
+					local timeout_trace = session_id_timeout_trace[session]
+					session_id_timeout_time[session] = nil
+					session_id_timeout_trace[session] = nil
+					local delta = c.now() - timeout_time
+					if delta >= 3 then
+						-- 30ms
+						skynet.error(string.format("select overtime, cost=%dms, trace=%s", delta*10, timeout_trace))
+					end
 				end
 			end
 			skynet.wakeup(self)
@@ -342,6 +346,10 @@ do ---- request/select
 			return ret(obj)
 		end
 		return ret
+	end
+
+	function skynet.trace_select(on)
+		select_timeout_trace = not not on
 	end
 end
 
